@@ -46,7 +46,7 @@ def predict_latest():
 
 @task(log_prints=True)
 def insert_forecast_value(timestamp):
-    engine = create_engine(con)
+    engine = create_engine(con)  # todo try https://prefecthq.github.io/prefect-sqlalchemy/
     with Session(engine) as session:
         forecast = predict_latest()[0]
 
