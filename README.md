@@ -28,4 +28,18 @@ The solution :
 [ToDo]
 
 # How to run
-[ToDo]
+Start clickhouse db: `docker-compose up -d`
+
+Start Prefect orion server and agent:
+
+`prefect orion start`
+
+`prefect agent start -q 'test_work_queue'`
+
+Build and apply deployments of existing flows (train and predict): 
+
+`prefect deployment build ./src/flows.py:[flow-name] -n [flow-name] -q test_work_queue --override env.API_KEY=[API_KEY]`
+
+`prefect deployment apply [flow-name]-deployment.yaml`
+
+Then go to Prefect UI and manually run or schedule the train and predict flows.

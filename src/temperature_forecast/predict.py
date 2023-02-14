@@ -3,31 +3,37 @@ import os
 import joblib
 import pandas as pd
 import requests
-from sqlalchemy import Column, Float, Integer, create_engine
-from sqlalchemy.orm import declarative_base, Session
 
 from src.temperature_forecast.utils import get_historical_temperature, pickle_path
+from src.clickhouse_connection import get_connection
 from prefect import task
 
 api_key = os.environ.get("API_KEY")
 lat = 52.084516
 lon = 5.115539
-con = "postgresql+psycopg2://postgres:postgres@localhost:5432/weather_prefect"  # todo move to ENV?
-
-Base = declarative_base()
-
-
-class Temperatures(Base):
-    __tablename__ = "temperatures"
-    timestamp = Column(Integer, primary_key=True)
-    forecast_temperature = Column(Float)
-    actual_temperature = Column(Float)
 
 
 @task
 def create_tables():
-    engine = create_engine(con, echo=True)
-    Base.metadata.create_all(engine)
+    client = get_connection()
+    client.command(
+        """
+        CREATE TABLE IF NOT EXISTS forecast_temperatures (
+            timestamp UInt32, 
+            temperature Nullable(Float64), 
+        ) ENGINE ReplacingMergeTree
+        PRIMARY KEY timestamp
+        """
+    )
+    client.command(
+        """
+        CREATE TABLE IF NOT EXISTS actual_temperatures (
+            timestamp UInt32, 
+            temperature Nullable(Float64), 
+        ) ENGINE ReplacingMergeTree
+        PRIMARY KEY timestamp
+        """
+    )
 
 
 def predict_latest():
@@ -46,31 +52,11 @@ def predict_latest():
 
 @task(log_prints=True)
 def insert_forecast_value(timestamp):
-    engine = create_engine(con)  # todo try https://prefecthq.github.io/prefect-sqlalchemy/
-    with Session(engine) as session:
-        forecast = predict_latest()[0]
+    client = get_connection()
 
-        instance = (
-            session.query(Temperatures)
-            .filter_by(
-                timestamp=timestamp,
-                forecast_temperature=forecast,
-                actual_temperature=None,
-            )
-            .one_or_none()
-        )
-        if not instance:
-            temperature = Temperatures(
-                timestamp=timestamp,
-                forecast_temperature=forecast,
-                actual_temperature=None,
-            )
-            session.add(temperature)
-        else:
-            session.query(Temperatures).filter_by(timestamp=timestamp).update(
-                {"forecast_temperature": forecast}
-            )
-        session.commit()
+    forecast = predict_latest()[0]
+    query = f'INSERT INTO forecast_temperatures VALUES ({timestamp}, {forecast})'
+    client.command(query)
 
 
 def get_current_temperature(timestamp):
@@ -84,27 +70,9 @@ def get_current_temperature(timestamp):
 
 
 @task
-def update_actual_value(timestamp):
-    engine = create_engine(con)
-    with Session(engine) as session:
-        current_temperature = get_current_temperature(timestamp)
+def insert_actual_value(timestamp):
+    client = get_connection()
 
-        instance = (
-            session.query(Temperatures)
-            .filter_by(
-                timestamp=timestamp,
-            )
-            .one_or_none()
-        )
-        if not instance:
-            temperature = Temperatures(
-                timestamp=timestamp,
-                forecast_temperature=None,
-                actual_temperature=current_temperature,
-            )
-            session.add(temperature)
-        else:
-            session.query(Temperatures).filter_by(timestamp=timestamp).update(
-                {"actual_temperature": current_temperature}
-            )
-        session.commit()
+    current_temperature = get_current_temperature(timestamp)
+    query = f'INSERT INTO actual_temperatures VALUES ({timestamp}, {current_temperature})'
+    client.command(query)
