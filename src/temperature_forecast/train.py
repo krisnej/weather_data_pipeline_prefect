@@ -3,13 +3,11 @@ import pandas as pd
 from prefect import task
 from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.pipeline import Pipeline
-from src.temperature_forecast.utils import (
-    LagCreator,
-    NanDropper,
-    SmoothedVarCreator,
-    get_historical_temperature,
-    pickle_path,
-)
+
+from src.temperature_forecast.utils import (LagCreator, NanDropper,
+                                            SmoothedVarCreator,
+                                            get_historical_temperature,
+                                            pickle_path)
 
 
 @task

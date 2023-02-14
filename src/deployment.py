@@ -1,20 +1,19 @@
 import datetime
 
+from prefect.deployments import Deployment
 from prefect.orion.schemas.schedules import IntervalSchedule
 
-from src.flows import train, predict_precipitation
-from prefect.deployments import Deployment
-
+from src.flows import predict, train
 
 schedule_daily = IntervalSchedule(
     anchor_date=datetime.datetime(2023, 2, 2, 0, 0, 0),
-    interval=datetime.timedelta(hours=24)
+    interval=datetime.timedelta(hours=24),
 )
 
 
 schedule_every_60_seconds = IntervalSchedule(
     anchor_date=datetime.datetime.now() + datetime.timedelta(seconds=1),
-    interval=datetime.timedelta(seconds=60)
+    interval=datetime.timedelta(seconds=60),
 )
 
 deployment_train = Deployment.build_from_flow(
@@ -22,16 +21,16 @@ deployment_train = Deployment.build_from_flow(
     name="train",
     infra_overrides={"env": {"API_KEY": "secret_api_key"}},
     work_queue_name="test_work_queue",
-    schedule=schedule_daily
+    schedule=schedule_daily,
 )
 
 
 deployment_predict = Deployment.build_from_flow(
-    flow=predict_precipitation,
+    flow=predict,
     name="predict_precipitation",
     infra_overrides={"env": {"API_KEY": "secret_api_key"}},
     work_queue_name="test_work_queue",
-    schedule=schedule_every_60_seconds
+    schedule=schedule_every_60_seconds,
 )
 
 

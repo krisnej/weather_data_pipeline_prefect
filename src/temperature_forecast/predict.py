@@ -3,10 +3,11 @@ import os
 import joblib
 import pandas as pd
 import requests
-
-from src.temperature_forecast.utils import get_historical_temperature, pickle_path
-from src.clickhouse_connection import get_connection
 from prefect import task
+
+from src.clickhouse_connection import get_connection
+from src.temperature_forecast.utils import (get_historical_temperature,
+                                            pickle_path)
 
 api_key = os.environ.get("API_KEY")
 lat = 52.084516
@@ -55,7 +56,7 @@ def insert_forecast_value(timestamp):
     client = get_connection()
 
     forecast = predict_latest()[0]
-    query = f'INSERT INTO forecast_temperatures VALUES ({timestamp}, {forecast})'
+    query = f"INSERT INTO forecast_temperatures VALUES ({timestamp}, {forecast})"
     client.command(query)
 
 
@@ -74,5 +75,7 @@ def insert_actual_value(timestamp):
     client = get_connection()
 
     current_temperature = get_current_temperature(timestamp)
-    query = f'INSERT INTO actual_temperatures VALUES ({timestamp}, {current_temperature})'
+    query = (
+        f"INSERT INTO actual_temperatures VALUES ({timestamp}, {current_temperature})"
+    )
     client.command(query)
